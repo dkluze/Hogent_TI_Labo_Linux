@@ -580,3 +580,76 @@ dhcp voorbeeld:
 auto eth0
 iface eth0 inet dhcp
 ```
+
+# Scripting 102
+
+De unit tests van de oefeningen worden in volgorde uitgevoerd. Zolang er nog fouten in een oefening gevonden zijn, worden de tests van de volgende nog niet uitgevoerd.
+
+Maak een script met de naam onderelkaar.sh die de op de command line als argumenten ingevoerde zin woord per woord onder elkaar afdrukt op het scherm. Als de gebruiker geen argumenten opgegeven heeft, wordt er een gepaste foutboodschap op stderr afgedrukt en stopt het script met een foutcode (exit-status verschillend van 0). Voorbeeld van de uitvoer:
+
+```bash
+#!/bin/bash
+set -o nounset
+set -o errexit
+set -o pipefail
+
+for word in "$@"
+do
+    echo $word
+done
+```
+
+Schrijf een script gebruikerslijst.sh dat een gesorteerde lijst van users (uit /etc/passwd) weergeeft op het scherm. Maak gebruik van het het commando cut.
+
+```bash
+#!/bin/bash
+
+set -o pipefail
+set -o errexit
+set -o nounset
+
+cat /etc/passwd | cut -d: -f1 | sort
+```
+
+Schrijf een script elf-params.sh dat maximaal 11 parameters kan weergeven op het scherm. Extra parameters worden genegeerd. (Tip: gebruik positionele parameters en shift)
+
+```bash
+#!/bin/bash
+
+set -o errexit
+set -o pipefail
+set -o nounset
+
+count=0
+
+while [ $count -lt 11 ]
+do
+    echo ${1}
+    
+    if [ -z $2 ]; then
+      exit 1
+    fi
+    
+    shift
+    let count=count+1
+done
+```
+
+Schrijf een script datum.sh dat het aantal elementen van het commando date weergeeft en daarna al de elementen onder elkaar. Maak gebruik van positionele parameters en het set commando. Gebruik ook een while-lus.
+
+```bash
+#!/bin/bash
+
+set -o nounset
+set -o errexit
+set -o pipefail
+
+datum=$(date)
+
+echo ${datum}
+
+for element in ${datum}
+do
+    echo $element
+done
+```
