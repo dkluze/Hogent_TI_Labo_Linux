@@ -446,3 +446,137 @@ De verklaring hiervoor ligt in het type variabele. Welke soort variabele is PING
 Zorg er nu voor dat de inhoud van PINGUIN ook in elke nieuwe subshell kan gelezen worden? Hoe doe je dit? Schrijf het gebruikte commando neer.
 Open opnieuw een sub(bash)shell in je huidige bashomgeving en controleer of je nu de inhoud van PINGUIN kan lezen. Welk soort variabele is PINGUIN nu? Doe dan ook de controle.
 Zoek de inhoud en betekenis op van volgende shellvariabelen en vul volgende tabel aan:
+
+# 3. Package management (debian)
+
+We verkennen onderstaande opdrachten vanuit de Linux Mint VM.
+
+1. Installeer onderstaande applicaties of “packages”. Zorg er voor dat je dit zowel via de grafische gebruikersinterface kan als vanop de command-line.
+
+git
+ShellCheck
+vim
+vim-gtk3
+
+
+```bash
+apt install git shellcheck vim vim-gtk3
+```
+
+2. Download de volgende package sl from the Ubuntu system: https://packages.ubuntu.com/focal/games/sl
+Or more aware of your CPU - from https://packages.ubuntu.com/focal/amd64/sl/download
+Installeer vervolgens dit gedownload .deb bestand.
+Kan je het commando sl nu laten werken in de CLI?
+
+```bash
+installeer sl
+commandline: apt install sl
+man sl
+```
+
+3. Kan je hetzelfde doen met de package cavepacker? https://packages.ubuntu.com/focal/amd64/cavepacker/download, tenzij je een ander type processor hebt.
+Kan je met dpkg de informatie opvragen over deze package (zie man page)? Waardoor loop je vast?
+
+4. Haal een config bestand uit een package.
+Download deze package http://ftp.de.debian.org/debian/pool/main/i/isc-dhcp/isc-dhcp-server_4.4.1-2.3_arm64.deb
+
+1. Waarom kan deze package nooit compatibel zijn met jouw VM?
+
+2. Kan je alle bestanden oplijsten die hierin vervat zitten? 
+
+3. Hoe haal je de dhcpd.conf uit dit bestand?
+
+5. Update de lijst van beschikbare software op je systeem. Toon een lijst van bij te werken packages. 
+Kan je één package updaten (en de rest van de lijst niet), e.g. firefox?
+
+
+```bash
+apt list --upgrade
+apt upgrade firefox -- firefox upgraden
+```
+
+# DHCP server installatie
+In de volgende labo opdracht koppelen we jouw kennis van het installeren van software, en het instellen van IP adressen aanéén. We installeren én configureren een DHCP server op de (server) VM, en laten de GUI-VM client worden van deze nieuwe server. 
+
+DHCP server
+1. Log in met ssh op de server. Dit laat je toe om te werken vanuit de GUI op deze server (en dus ook copy-paste e.d. te kunnen gebruiken). Dit kan met 
+ssh -l admin 192.168.76.2
+
+```bash
+ssh -l admin 192.168.76.2
+```
+
+2. Gebruik de zoekmogelijkheid van dnf om een package te vinden die corresponeert met de ISC DHCP server. Wat is de package naam? Installeer.
+
+```bash
+dnf search isc dhcp
+sudo dnf install dhcp-server
+```
+
+3. Bestudeer het bestand /usr/share/doc/dhcp-server/dhcpd.conf.example. Wat heb je nodig om enkel in één subnet IP-adressen uit te delen? Wat is m.a.w. een minimale configuratie?
+
+```bash
+Je moet een range meegeven.
+
+subnet ... netmask ... {
+  range startIP endIP;
+}
+
+```
+
+
+4. Kopieer de relevante informatie naar /etc/dhcp/dhcpd.conf. Deel enkel adressen uit van 192.168.76.100 tot 150. Start de service. 
+
+```bash
+sudo dnf install nano
+sudo nano /etc/dhcp/dhcpd.conf
+
+in file:
+subnet 192.168.76.0 netmask 255.255.255.0 {
+  range 192.168.76.100 192.168.76.150;
+}
+
+sudo systemctl enable dhcpd
+sudo systemctl start dhcpd
+```
+
+5. Kan je de status van de service opvragen?
+
+```bash
+sudo systemctl enable dhpd
+```
+
+DHCP client
+In het netwerk is de Linux Mint VM de enige client - maar die gebruikt momenteel nog een statisch adres!
+
+1. Test je server door op de Mint CLI handmatig een DHCP client op te starten: dhclient -i 'interface'. 
+
+```bash
+
+```
+
+2. Bekijk je IP-adressen op deze VM. Welke adressen heeft de 2e netwerkkaart nu?
+
+```bash
+ip a | grep 'inet '
+```
+
+3. Kan je in de logfiles op de server in de map /var/lib/dhcpd terugvinden welk adres je VM gekregen heeft? Hoe lang kan je dit gebruiken (m.a.w. wat is de lease time?).
+
+```bash
+cat /var/lib/dhcpd/dhcpd.leases | grep ends
+```
+
+4. Pas het bestand /etc/network/interfaces aan zodat deze 2e netwerkkaart geen statisch, maar een dynamisch IP-adres krijgt d.m.v. DHCP (nu ja, jouw DHCP server!). Herstart de netwerking op de Mint VM. Welk(e) adres(sen) heeft jouw 2e netwerkkaart nu nog?
+
+```bash
+statisch ip-adres voorbeeld: 
+iface eth0 inet static
+address 192.168.1.5
+netmask 255.255.255.0
+gateway 192.168.1.254
+
+dhcp voorbeeld:
+auto eth0
+iface eth0 inet dhcp
+```
