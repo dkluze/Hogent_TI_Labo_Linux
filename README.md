@@ -1,4 +1,4 @@
-# Gebruikers (en groepen) aanmaken
+# 1. Gebruikers (en groepen) aanmaken
 Het doel van deze opgave is om de opdrachten en de begrippen met betrekking tot gebruikers en groepen te bestuderen, binnen de context van Linux als een multi-user-systeem.
 
 1. De VM komt met een default user osboxes - dat ben jij (nu toch nog)! Log in als deze gebruiker.
@@ -273,3 +273,176 @@ touch bestand1
 chmod +t /groep/verkoop
 chmod +t /groep/inkoop
 ```
+
+
+# 2. Streams, pipes, redirects
+In onderstaande vragen is het telkens de bedoeling één commando te geven om de taak uit te voeren. Probeer altijd eerst om de uitvoer op de console te tonen voordat je wegschrijft naar het gevraagde bestand. Zo zie je sneller eventuele fouten.
+
+1. Voeg het bestand landen en autokentekens samen met het commando join (zoek de werking ervan op met het man-commando). Het resultaat wordt opgeslagen in het bestand landenkentekens.
+
+```bash
+join landen autokentekens >> landenkentekens
+```
+
+Haal uit landenkentekens alleen kolom 2 en kolom 3 eruit en sla dit resultaat op als landenkentekens2.
+
+```bash
+cut -d' ' -f2,3 landenkentekens >> landenkentekens2
+```
+
+Voeg vanop de command-line Italië en Spanje toe aan het einde van landenkentekens2 met hun respectievelijke kentekens. Je mag hier voor elk land een apart commando gebruiken.
+
+```bash
+echo 'Italië I' >> landenkentekens2
+echo 'Spanje ESP' >> landenkentens2
+```
+
+Sorteer landenkentekens2 alfabetisch op de autokentekens. Sla het bekomen resultaat op in gesorteerdeautokentekens. Controleer het resultaat.
+
+```bash
+sort -k2 landenkentekens2 > gesorteerdeautokentekens
+```
+
+België B
+Zwitserland CH
+Duitsland D
+Spanje E
+Frankrijk F
+Italië I
+Nederland NL
+
+# 2.4.2. Filters
+
+Bekijk de uitvoer van het commando ip a (opvragen van de IP-adressen van deze host). Filter de IPv4 (niet IPv6) adressen er uit:
+
+127.0.0.1/8
+10.0.2.15/24
+
+```bash
+ip a | grep 'inet '
+
+of om specifiek enkel het IP-adres op te halen en géén andere info
+sed -e --> whitespace verwijderen
+
+ip a | grep 'inet ' | set -e 's/^[ \t]*//' | cut -d' ' -f2
+ip a | grep 'inet ' | tr -s ' ' | cut -d' ' -f3
+```
+
+Werken met doorlopende tekst
+Deze oefeningen gebeuren met lorem.txt
+
+Tel het aantal regels, wooren en tekens in lorem.txt
+  45  404 2738 lorem.txt
+  
+```bash
+wc lorem.txt
+```
+  
+Herformatteer lorem.txt zodat elke tekstregel max. 50 lettertekens bevat en nummer daarna elke (niet-lege) regel. Het resultaat wordt weggeschreven in een nieuw bestand, nlorem.txt.
+
+```bash
+fmt -50 lorem.txt | nl
+```
+
+Druk een lijst af van alle individuele woorden in lorem.txt (negeer hoofdletters), samen met het aantal keer dat elk woord voorkomt. De lijst is omgekeerd gesorteerd op aantal voorkomens, en dan alfabetisch geordend. Werk stap voor stap:
+
+Maak eerst een lijst van woorden, m.a.w. druk lorem.txt af met elk woord op een aparte regel
+Verwijder overblijvende leestekens (, en .) en lege regels
+Sorteer de woorden (niet hoofdlettergevoelig)
+Maak een lijst met voor elk woord het aantal keer dat het voorkomt
+Sorteer op het aantal voorkomens en behoud de alfabetische sortering van de woorden
+ 11 sed 
+ 10 et 
+  8 quis 
+  7 eget 
+  7 mi 
+  6 in 
+  6 nec 
+  6 nunc 
+  6 tortor 
+  5 ac 
+  5 accumsan 
+
+```bash
+cat lorem.txt | tr 'A-Z' 'a-z' | tr -s '.,?' | tr ' ' '\n' | sort | uniq -c | sort -k1 -r -n
+```
+
+# Gestructureerde tekst
+Vele tekstbestanden zijn gestructureerd als tabellen, bv. CSV (comma-separated values). Op een Linux-systeem zijn verschillende configuratiebestanden ook op zo'n manier opgedeeld, maar dan vaak met een : als scheidingsteken. In de volgende oefeningen werken we met het bestand passwd, dat je gedownload hebt.
+
+Schrijf in users.txt een gesorteerde lijst weg van gebruikers met een UID strikt groter dan 1000 (tip: gebruik hiervoor awk). De inhoud van het bestand moet er zo uit zien:
+
+roberts
+ryu
+sparrow
+student
+teach
+yoshiro
+
+```bash
+awk -F: '$3>1000{ print $1 }' passwd > users.txt
+```
+
+Tel het aantal gebruikers in users.txt
+
+```bash
+wc -l users.txt
+```
+
+
+Genereer voor elke gebruiker in users.txt een nieuw wachtwoord m.h.v. het commando apg -n AANTAL en schrijf deze weg in newpass.txt. Het aantal gebruikers in users.txt wordt berekend in de opdrachtregel. Tip: gebruik "command substitution," notatie $(commando). Dit zal het gegeven commando uitvoeren en de uitdrukking $(...) vervangen door de uitvoer (stdout) ervan.
+
+```bash
+apg -n $( wc -l users.txt ) > newpass.txt
+```
+
+Maak een tekstbestand newusers.txt met daarin de lijst van gebruikers uit users.txt en hun overeenkomstige wachtwoord uit newpass.txt, gescheiden door een TAB. Controleer de inhoud van newusers.txt:
+
+```bash
+paste users.txt newpass.txt > newusers.txt
+```
+
+$ cat newusers.txt
+roberts hewpopIrb6
+ryu     vicNimEp
+sparrow whowlash4
+student Evcorfoi
+teach   cymgardye
+yoshiro sirgElkont
+
+Converteer newusers.txt naar een CSV-bestand newusers.csv waar de inhoud van elke kolom omgeven is door dubbele aanhalingstekens en gescheiden door een kommapunt. Controleer de inhoud van newusers.csv
+
+$ cat newusers.csv
+"roberts";"hewpopIrb6"
+"ryu";"vicNimEp"
+"sparrow";"whowlash4"
+"student";"Evcorfoi"
+"teach";"cymgardye"
+"yoshiro";"sirgElkont"
+Druk een lijst af van de gebruikers in passwd die Bash als shell hebben, samen met hun UID en home-directory. Sorteer op UID. De uitvoer moet er zo uitzien:
+
+root:0:/root
+vagrant:1000:/home/vagrant
+student:1001:/home/student
+ryu:1002:/home/ryu
+yoshiro:1003:/home/yoshiro
+sparrow:1004:/home/sparrow
+teach:1005:/home/teach
+roberts:1006:/home/roberts
+
+# 2.4.3 Variabelen
+Geef zoals gewoonlijk het commando om de opgegeven taak uit te voeren en controleer ook het resultaat.
+
+Druk met behulp van de juiste systeemvariabele de gebruikte bash-versie af op het scherm. Geef het gebruikte commando weer.
+
+Je bent ingelogd als gewone gebruiker.
+
+Maak een variabele pinguin aan en geef deze de waarde Tux.
+Hoe kan je de inhoud opvragen van deze variabele en afdrukken op het scherm?
+Open nu een sub(bash)shell in je huidige bashomgeving.
+Hoe kan je controleren dat er nu twee bashshells actief zijn en dat de ene een subshell is van de andere?
+Probeer nu in deze nieuwe subshell de inhoud van de variabele PINGUIN af te drukken op het scherm. Lukt dit?
+De verklaring hiervoor ligt in het type variabele. Welke soort variabele is PINGUIN en hoe kan je dit controleren? Keer hiervoor terug naar je oorspronkelijke bashshell
+Zorg er nu voor dat de inhoud van PINGUIN ook in elke nieuwe subshell kan gelezen worden? Hoe doe je dit? Schrijf het gebruikte commando neer.
+Open opnieuw een sub(bash)shell in je huidige bashomgeving en controleer of je nu de inhoud van PINGUIN kan lezen. Welk soort variabele is PINGUIN nu? Doe dan ook de controle.
+Zoek de inhoud en betekenis op van volgende shellvariabelen en vul volgende tabel aan:
