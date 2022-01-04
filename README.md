@@ -966,12 +966,76 @@ sudo setsebool httpd_can_network_connect_db on
 # 6. Scripting "103" - opgaves
 Werk volgende scriptoefeningen uit (zonder unit tests). Ze gaan in op testen en voorwaarden inbouwen in je script voordat je naar verdere stappen gaat.
 
-Vraag aan de gebruiker van dit script een naam voor een bestand, schrijf dit vervolgens weg en zorg ervoor dat het bestand uitvoerbaar is. (Opm. geen unit tests voor deze oefening)
-
 Dit script zal een bestand kopiëren. Bron en doel worden als argumenten meegegeven. Test of het doelbestand bestaat. Indien wel, wordt het script afgebroken. (Opm. geen unit tests voor deze oefening)
 
+```bash
+#!/bin/bash
+
+set -o nounset
+set -o errexit
+set -o pipefail
+
+if [ ${#} -eq 0 ]; then
+        echo "Geen vars meegegeven!"
+        exit 1
+fi
+
+
+bestand=${1}
+doel=${2}
+doelbestand=${doel}${bestand}
+
+if [ ! -f ${bestand} ]; then
+        echo 'Bestand niet gevonden!'
+        exit 1
+fi
+```
 Sorteer de inhoud van een bestand (arg1) en toon de laatste regels (aantal regels = arg2). Indien argument 1 ontbreekt, melding geven en afbreken. Indien argument 2 ontbreekt neemt men 20 als default waarde. Om te testen maak je een bestand aan met alle letters van het alfabet, in de volgorde van je toetsenbord. (Opm. geen unit tests voor deze oefening)
 
+```bash                                
+#!/bin/bash
+
+bestand=${1}
+aantalRegels=${2}
+
+if [ $# -eq 0 ]; then
+        echo "Niks meegegeven!"
+        exit 1
+elif [ ! -e ${1} ]; then
+        echo "Het bestand bestaat niet!"
+        exit 1
+elif [ -e ${2} ]; then
+        sort "${bestand}" | tail -"${aantalRegels}"
+else
+        sort "${bestand}" | tail -20
+fi
+```
+
 Dit script moet testen of het opgegeven bestand (arg1) bestaat en uitvoerbaar is. Indien het niet uitvoerbaar is, moet het uitvoerbaar gemaakt worden.
+
+```bash
+#!/bin/bash
+
+bestand=${1}
+
+if [ ! -e "${bestand}" ]; then
+        echo "Dit bestand bestaat niet!"
+        exit 1
+else
+        if [ -x "${bestand}" ]; then
+                echo 'Dit bestand is executable'
+                exit
+        else
+                echo 'Dit bestand is niet executable!'
+                chmod +x "${bestand}"
+
+                if [ -x "${bestand}" ]; then
+                        echo 'Geslaagd!'
+                else
+                        echo 'Niet geslaagd :('
+                fi
+        fi
+fi
+```
 
 Dit script maakt gebruik van het cal (kalender commando). De gebruiker wordt verplicht om de drie eerste letters van de maand (jan-feb-maa-apr-mei-jun-jul-aug-sep-okt-nov-dec) in te geven. Vervolgens wordt de maandkalender van die maand weergegeven. Geef foutmelding indien geen correcte maand wordt ingegeven en stop het script. De gebruiker kan ook het jaartal ingeven (niet verplicht). Indien niet ingegeven wordt het huidige jaar gebruikt.
