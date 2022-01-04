@@ -886,7 +886,7 @@ Als je succesvol test, is je screen output het volgende:
 |  2 | Mrs. SELinux |
 +----+--------------+
 
-webserver [apache2]
+# Webserver [apache2]
 In dit vervolg zetten we enerzijds een php pagina op die kan verbinden met de database server; anderzijds gaan we aan de slag met het firewall-cmd.
 
 Testen basisconnectie
@@ -895,14 +895,70 @@ Surf vanop je Linux GUI VM naar jouw webserver op 192.168.76.2. Waardoor kan je 
 Pas de firewall op de server aan opdat deze verbinding wel kan tot stand komen.
 PHP script met SELinux context
 
+```bash
+staat mijn firewall aan:
+systemctl status firewalld
+
+welke services heb ik staan in mijn firewall?
+sudo firewall-cmd --list-all
+
+http én https toevoegen
+sudo firewall-cmd --add-service=http
+sudo firerwall-cmd --add-servce=https
+
+checken:
+sudo firewall-cmd --list-all
+
+testen of je kan verbinden vanop de client (dus niet de server):
+--> via browser op Mint vm
+--> via commandline op Mint vm is 'curl 192.168.76.2'
+```
+
 Installeer de extra package php-mysqlnd op je server. Deze laat toe om via php te communiceren met een SQL server - wat we vervolgens gaan doen.
+
+```bash
+dnf install php-mysqlnd
+```
+
 Ga naar jouw home folder (cd ~). Download hier het bestand test.php vanaf http://157.193.215.171/test.php
+
+```bash
+
+cd
+
+bestand ophalen:
+'wget http://157.193.215.171/test.php'
+
+ls -l
+```
+
 Verplaats (met mv) vervolgens dit bestand naar de map /var/www/html.
+
+```bash
+
+sudo mv test.php /var/www/html
+
+ls -Z /var/www/html
+
+```
+
+
 Dit bestand is momenteel eigendom van jou - de downloader. Ga dit na met het ls -Z commando.
 Echter, bestanden in deze map moeten toebehoren aan de juiste context. Neem de map /var/www/html als referentie, en stel dezelfde SELinux instellingen in voor dit nieuwe bestand. Hint: https://linuxconfig.org/introduction-to-selinux-concepts-and-management -> zoek op chcon --reference
+
+```bash
+restorecon -R /var/www/html
+chcon --reference /var/www/html /var/www/html/test.php
+```
+
 Als je succesvol bent, zal de PHP pagina correct inladen - maar wel geen connectie kunnen maken met de database server. Error:
 PHP met SELinux connections
 
 We kunnen bij connectieproblemen verleid worden tot zoeken naar problemen bij de firewall. Echter, gezien de database service op dezelfde server geïnstalleerd is als de apache HTTP server, verlopen de verbindingen van het ene software programma naar het andere niet via de externe IP-adressen. Die gaat via het localhost adres - ook al worden andere IP-adressen gebruikt. Wie het verkeer monitort met e.g. wireshark of tcpdump (zie het vak "CyberSecurity & Virtualisation"), zou dit kunnen aantonen. Dit valt echter buiten de scope van dit vak "Linux".
 
 Long story short: SELinux laat een HTTP daemon niet standaard toe om verbindingen met een database server te leggen. Om dit toch toe te laten, moet een boolean waarde verander worden. De stappen hiervoor vind je op https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/6/html/security-enhanced_linux/sect-security-enhanced_linux-booleans-configuring_booleans
+
+```bash
+getsebool httpd_can_network_connect_db
+sudo setsebool httpd_can_network_connect_db on
+```
