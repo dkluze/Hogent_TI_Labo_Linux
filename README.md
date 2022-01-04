@@ -718,3 +718,191 @@ curl localhost
 
 Resultaat: Er komt een lijntje bij. Dit met de datum en ook het adres die de site wou bezoeken.
 ```
+
+# 5. Webserver hardening
+Als eerste stap beperken we de ruimte voor de mysql server: we perken het IP adres in, en veranderen het poortnummer.
+
+MariaDB IP-adres veranderen
+De configuratie van de mysql server vind je typisch in het bestand my.cnf. Bekijk dit bestand. Waar vind je op deze server de werkelijke configuratie terug? Maak een backup van dit 'mariadb...cnf' bestand door het te kopiëren voor je start met het bewerken. 
+
+```bash
+cd /etc/my.cnf.d
+sudo cp mariadb-server.cnf mariadb-server.cnf.kopie
+```
+
+Ga de status van de mariadb server na met systemctl. Verifiëer het IP-adres en poortnummer van de service met ss.
+
+```bash
+systemctl status mariadb-server
+systemctl start mariadb-server
+ss -tln toont aan dat dit op poort '3306' is
+```
+
+Open het configuratiebestand. Plaats bij de sectie [server] in het bestand een variabele bind_address, en zet de waarde op het "intnet" IP-adres van je server. Herstart de service, en verifiëer met ss dat de mariadb service enkel nog actief is op dit IP-adres. 
+Installeer de package netcat. Maak een test-verbinding met de mariadb server: nc -nvz [IP-adres] 3306. Test dit eveneens met de twee andere IP-adressen van je server (NAT, localhost). Verifiëer dat dit niet langer werkt! 
+
+```bash
+
+cd /etc/my.cnf.d
+sudo nano mariadb-server.cnf
+
+//
+Bij server:
+[server]
+bind_address=192.168.76.2
+//
+
+na configureren van bestand:
+
+systemctl restart mariadb-server
+ss -tln
+```
+
+
+
+MariaDB poortnummer veranderen
+
+3306 is een te publiek gekende poort - en trekt gemakkelijk online de aandacht van hackers. Laten we een alternatieve poort zoeken: welk poortnummer vind je in /etc/services terug voor het niet langer gebruikte UniSQL protocol? Noteer.
+
+```bash
+cat /etc/services | grep unisql
+toont poort 1978 als mogelijkheid
+```
+
+Bewerkt opnieuw het mysql configuratiebestand, en plaats een waarde port onder het IP-adres van hierboven. Stel op deze manier het poortnummer in op dit van UniSQL.Herstart de mariadb service.
+Als alles goed gaat, zal je mariadb server niet opstarten! Immers: SELinux laat slechts een beperkt aantal poorten toe voor MariaDB. Ga op https://dev.mysql.com/doc/refman/8.0/en/selinux-context-mysqld-tcp-port.html na hoe je het hierboven gekozen poortnummer kan toevoegen aan de juiste SELinux context. Herstart nu nogmaals je mariadb service - tot hij werkt.
+Test je (mariadb) server met nc -nvz [IP-adres] [nieuw poortnummer].
+
+```bash
+sudo nano mariadb-server.conf
+
+//
+[server]
+bind_address=192.168.76.2
+port=1978
+//
+
+systemctl restart mariadb-server
+
+foutmelding!
+
+sudo semanage port -a -t mysqld_port_t -p tcp 1978
+
+sudo dnf install ns
+
+nc -nvz 192.168.76.2 1978
+```
+
+
+MariaDB directory veranderen
+
+Standaard bewaart de DB server zijn data in de map /var/lib/mysql. Maak een map /dbdata aan op je server. Verander de eigenaar en de groep van deze map naar mysql:mysql - het is deze gebruiker die operaties uitvoert op de map als de service zaken verandert!
+Wijzig in het config bestand de default locatie voor de database data naar deze map.
+Herstart de mariadb service. Als alles goed gaat, zal je mariadb server niet opstarten! Opnieuw gaan we ook SELinux nog moeten aanpassen opdat deze map gebruikt mag worden.
+Ga na op https://mariadb.com/kb/en/selinux/ welke aanpassingen je nog moet uitvoeren op je nieuwe map. 
+Herstart nu nogmaals je mariadb service - tot hij werkt.
+mysql data input
+
+```bash
+
+cd /
+mkdir /dbdata
+sudo chown mysql:mysql /dbdata
+ls -l | grep dbdata (om te controleren, kijk of er bij dbdata ook twee maal mysql staat)
+
+sudo nano /etc/my.cnf.d/mariadb-server.cnf
+
+//[mysqld]
+datadir=/dbdata
+..
+//
+
+start niet op!
+
+sudo semanage fcontext -a -t mysqld_db_t "/dbdata(/.*)?"
+sudo restorecon -Rv /dbdata
+```
+
+Nu we een werkende database server hebben (weliswaar op een ingeperkt IP, een andere poort en een niet conventionele map), kunnen we de sql database ook initialiseren en er een set data aan voeden:
+
+```bash
+sudo mysql_secure_installation
+
+current root pwd: niks ingeven
+
+set root pwd: Y
+              wachtwoord kies je zelf, ik koos 'root' twee maal
+              
+Enkel op 'disallow root login' 'N' antwoorden. De rest 'Y'.
+
+```
+
+Stel een (mysql) root wachtwoord in voor deze server met mysqladmin password
+Verbind met de mysql server op de CLI met mysql -u root -p. Geef het gekozen wachtwoord in.
+Maak een gebruiker aan die toegang krijgt tot een test-database. In SQL: 
+
+```sql
+CREATE DATABASE IF NOT EXISTS trialsite;
+GRANT ALL ON trialsite.* TO 'www_user'@'%' identified by 'YourSitePassword';
+FLUSH PRIVILEGES;
+```
+
+Voer met deze nieuwe gebruiker een set van data in in jouw database:
+```sql
+mysql --user="www_user" --password="YourSitePassword" "trialsite" << _EOF_
+DROP TABLE IF EXISTS trialsite_tbl;
+CREATE TABLE trialsite_tbl (
+  id int(5) NOT NULL AUTO_INCREMENT,
+  name varchar(50) DEFAULT NULL,
+  PRIMARY KEY(id)
+);
+INSERT INTO trialsite_tbl (name) VALUES ("Mr. IPtables");
+INSERT INTO trialsite_tbl (name) VALUES ("Mrs. SELinux");
+_EOF_
+```
+
+Test je gecreëerde database met het volgende bash script test_db.sh. Je kan dit zelf aanmaken op je server system:
+
+```
+#!/bin/bash
+test_database='trialsite'
+test_table='trialsite_tbl'
+test_user='www_user'
+test_password='YourSitePassword'
+
+mysql --host=192.168.76.2 --port=1978 \
+  --user="${test_user}" \
+  --password="${test_password}" \
+  "${test_database}" \
+  --execute="SELECT * FROM ${test_table};"
+```
+
+Als je succesvol test, is je screen output het volgende:
+[admin@server ~]$ bash test_db.sh 
++----+--------------+
+| id | name         |
++----+--------------+
+|  1 | Mr. IPtables |
+|  2 | Mrs. SELinux |
++----+--------------+
+
+webserver [apache2]
+In dit vervolg zetten we enerzijds een php pagina op die kan verbinden met de database server; anderzijds gaan we aan de slag met het firewall-cmd.
+
+Testen basisconnectie
+
+Surf vanop je Linux GUI VM naar jouw webserver op 192.168.76.2. Waardoor kan je niet verbinden, als dit niet zou werken?
+Pas de firewall op de server aan opdat deze verbinding wel kan tot stand komen.
+PHP script met SELinux context
+
+Installeer de extra package php-mysqlnd op je server. Deze laat toe om via php te communiceren met een SQL server - wat we vervolgens gaan doen.
+Ga naar jouw home folder (cd ~). Download hier het bestand test.php vanaf http://157.193.215.171/test.php
+Verplaats (met mv) vervolgens dit bestand naar de map /var/www/html.
+Dit bestand is momenteel eigendom van jou - de downloader. Ga dit na met het ls -Z commando.
+Echter, bestanden in deze map moeten toebehoren aan de juiste context. Neem de map /var/www/html als referentie, en stel dezelfde SELinux instellingen in voor dit nieuwe bestand. Hint: https://linuxconfig.org/introduction-to-selinux-concepts-and-management -> zoek op chcon --reference
+Als je succesvol bent, zal de PHP pagina correct inladen - maar wel geen connectie kunnen maken met de database server. Error:
+PHP met SELinux connections
+
+We kunnen bij connectieproblemen verleid worden tot zoeken naar problemen bij de firewall. Echter, gezien de database service op dezelfde server geïnstalleerd is als de apache HTTP server, verlopen de verbindingen van het ene software programma naar het andere niet via de externe IP-adressen. Die gaat via het localhost adres - ook al worden andere IP-adressen gebruikt. Wie het verkeer monitort met e.g. wireshark of tcpdump (zie het vak "CyberSecurity & Virtualisation"), zou dit kunnen aantonen. Dit valt echter buiten de scope van dit vak "Linux".
+
+Long story short: SELinux laat een HTTP daemon niet standaard toe om verbindingen met een database server te leggen. Om dit toch toe te laten, moet een boolean waarde verander worden. De stappen hiervoor vind je op https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/6/html/security-enhanced_linux/sect-security-enhanced_linux-booleans-configuring_booleans
