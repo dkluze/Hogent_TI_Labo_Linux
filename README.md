@@ -653,3 +653,68 @@ do
     echo $element
 done
 ```
+
+
+# 4. Webserver opzetten
+In dit labo zullen we een webserver opzetten in de (server) VM die je in het vorige labo gemaakt hebt. Een van de populairste toepassingen van Linux als server is de zgn. LAMP-stack. Deze afkorting staat voor Linux + Apache + MySQL + PHP. De combinatie vormt een platform voor het ontwikkelen van webapplicaties waar vele bekende websites (bv. Facebook) op gebaseerd zijn.
+
+De Apache webserver installeren
+Het is belangrijk dat je controleert voordat je aan dit labo begint, dat je twee netwerkinterfaces hebt op je virtuele machine. De ene moet van het type NAT zijn. Deze heeft verbinding met het internet en heeft typisch als IP-adres 10.0.2.15. De andere netwerkinterface moet van het type Internal Network zijn. Via deze kan je communiceren met de Linux GUI VM en je webserver testen. Als je niets hebt veranderd de standaardinstellingen van VirtualBox, is het server IP-adres hoogstwaarschijnlijk 192.168.76.2.
+
+```bash
+sudo dnf install httpd
+
+systemctl status httpd
+systemctl start httpd
+
+curl 127.0.0.1
+curl localhost
+```
+
+Installeer Apache op je virtuele machine en verifieer dat hij draait en vanop de GUI VM bereikbaar is.
+Installeer ondersteuning voor PHP en verifieer dat dit werkt, bijvoorbeeld met een eenvoudige PHP-pagina
+
+MariaDB (MySQL)
+MariaDB is de naam van een variant (fork) van de bekende database MySQL. Op sommige Linux-distributies (zoals Fedora) is MySQL zelfs niet meer beschikbaar. MariaDB is wel grotendeels compatibel en kan perfect dienen als vervanger. Installeer MariaDB op je virtuele machine. Voer daarna het script mysql_secure_installation uit om het root-wachtwoord voor MariaDB in te stellen. 
+
+Testing & logfiles
+Met welk commando test je of een host op het netwerk op dit moment online is? Probeer dit uit vanop je VM met het IP-adres van je host-systeem en voeg de uitvoer hieronder in. Welk protocol uit de TCP/IP familie wordt door deze tool gebruikt?
+
+```bash
+curl localhost
+curl 127.0.0.1
+
+TCP wordt hier gebruikt.
+```
+
+Met het commando ss -tln kan je opvragen welke services er draaien op je systeem, ahv. de open netwerkpoorten. Leg uit wat de opties (-tln) betekenen. Probeer het commando uit op je VM wanneer Apache en MariaDB draaien en voeg de uitvoer hieronder in. Geef voor elke open poort beneden de 10.000 welke netwerkservice er mee geassocieerd is.
+
+```bash
+-tln
+t staat voor tcp
+l staat voor sockets die nu aan het 'listening' zijn
+n
+p staat voor het PID
+```
+
+Met welk commando kan je de logs voor een bepaalde netwerkservice bekijken?
+
+```bash
+journalctl -u httpd
+journalctl -u mariadb-server
+```
+
+Wat is de naam van het logbestand waar je kan opvolgen welke webpagina's er opgevraagd worden aan je webserver?
+
+```bash
+sudo cat /var/log/httpd/access_log
+```
+
+Open dit bestand met tail -f en laad een webpagina via een webbrowser. Wat gebeurt er in het logbestand?
+
+```bash
+sudo cat /var/log/httpd/access_log | tail -f
+curl localhost
+
+Resultaat: Er komt een lijntje bij. Dit met de datum en ook het adres die de site wou bezoeken.
+```
