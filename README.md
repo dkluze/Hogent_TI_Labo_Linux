@@ -1175,17 +1175,125 @@ case "$1" in
 esac
 ```
 
-Cron and jobs
+# Cron and jobs
 1. Log in op je database server (zie opdracht automation). Als gebruiker root, maak een cronjob aan die de mariadb service elke dag herstart om 03:03. 
 
 ```powershell
 vagrant status
 vagrant up db
-vagrant login
+vagrant ssh db
 ```
 
 ```bash
+EDITOR=nano crontab -e
 
+in nano:
+//
+3 3 * * * service mariadb.service restart
+//
+crontab -l
 ```
 
-3. Deze wijziging voerde je uit op de actieve database server. Reflecteer: waar zou je deze cronjob wijziging eigenlijk moeten doorvoeren?
+extra:
+```bash
+Site: https://crontab.guru/
+“At 22:00 on every day-of-week from Monday through Friday.”
+0 22 * * 1-5 service mariadb.service restart
+
+“At minute 23 past every 2nd hour from 0 through 20.”
+23 0-20/2 * * * service mysql restart
+
+“At minute 0 past hour 0 and 12 on day-of-month 1 in every 2nd month.
+0 0,12 1 */2 *
+```
+
+2. Deze wijziging voerde je uit op de actieve database server. Reflecteer: waar zou je deze cronjob wijziging eigenlijk moeten doorvoeren?
+```
+In het crontab bestand moet je dit manueel ingeven. Je kan dit ook gewoon commandline doen op de prompt (niet in nano), maar in het configbestand kan je meer in detail gaan.
+```
+
+
+# 8. SSH
+In deze labo-oefeningen gaan we dieper in op key-based authentication (wat veiliger is als password based login). De oefening wordt uitgevoerd op de Mint GUI VM enerzijds (genaamd M), en op de twee servers die je voorheen maakte met vagrant (genaamd W en D anderzijds, resp. de webserver en database server). De letter vooraan de opdracht omschrijft wat je waar moet uitvoeren.
+Als er gevraagd wordt welk wachtwoord gebruikt wordt, kan het antwoord ook zijn 'geen wachtwoord'.
+
+M: Maak een nieuw RSA sleutelpaar aan met ssh-keygen. Kies een wachtwoord om de (private) sleutel op slot te doen.
+Als je de map .ssh bekijkt, welke bestanden zijn er bij gekomen?
+
+```bash
+ssh keygen -t rsa
+'drie maal enter'
+
+cd /home/osboxes/.ssh
+
+Er zijn drie bestanden bijgekomen. Namelijk id_rsa, id_rsa.pub en known_hosts.
+```
+
+M: kopieer de publieke sleutel naar zowel server D als W. 
+
+```bash
+scp id_rsa.pub vagrant@192.168.76.3:~/
+'yes' en dan wachtwoord (vagrant) ingeven
+
+scp id_rsa.pub vagrant@192.168.76.4:~/
+'yes' en dan wachtwoord (vagrant) ingeven
+```
+  
+D: Log in op deze server via SSH (vanaf M). Welk wachtwoord geef je nu in?
+Ga naar de map .ssh, en bekijk de inhoud van het bestand authorized_keys. Welke gebruikers hebben al toegang via deze deur?
+Append de publieke sleutel van opdracht 2 in dit bestand.
+Herhaal voor server W.
+
+```bash
+pwd --> /home/vagrant
+ls --> enkel id_rsa.pub
+ls .ssh --> enkel authorized_keys
+
+cat id_rsa.pub >> ssh/authorized_keys
+cat .ssh/authorized_keys --> twee sleutels
+
+Idem op webserver.
+```
+
+M: Log opnieuw in via SSH op server D. Er komt een pop-up window. Welk wachtwoord moet je hier ingeven?
+Herhaal voor server W.
+
+```
+ssh -l vagrant 192.168.76.3
+Je moet geen wachtwoord ingeven.
+
+ssh -l vagrant 192.168.76.4
+Je moet geen wachtwoord ingeven.
+```
+
+M: Voeg je private key toe aan een SSH-agent met ssh-add. Ga na met ssh-add -L dat de key effectief toegevoegd is.
+Log opnieuw in via SSH op server D. Welk wachtwoord moet je hier ingeven?
+
+```bash
+ssh-add --> 'Identity added /home/osboxes/.ssh/id_rsa (...'
+ssh-add -L --> sleutel moet zichtbaar zijn
+ssh -l vagrant 192.168.76.3
+Geen wachtwoord nodig om in te loggen.
+```
+
+M: Log opnieuw in via SSH op server D, maar gebruik nu de optie ssh -A. Bekijk de man-page over wat dit doet.
+
+```bash
+ssh -A gaat agent forwarding aanzetten of enablen. Dit is een extra laag authenticatie dat je op jouw systeem gaat plakken.
+```
+
+D: Log vervolgens in op W vanaf D - gewoon met SSH (zonder optie -A). Welk wachtwoord heb je nodig?
+Log uit (nu zie je normaal terug op D), en bekijjk de actieve keys in de agent op dit systeem.
+
+```bash
+MINT --> DB --> WEB via SSH
+
+MINT: 
+ssh -l vagrant 192.168.76.3 // MINT --> DB         ++ Hier moet je het wachtwoord van DB ingeven.
+ssh -l vagrant 192.168.76.4 // MINT --> DB --> WEB ++ Hier moet je het wachtwoord van de WEB ingeven.
+exit                        // MINT --> DB
+cat .ssh/authorized_keys    // MINT --> DB
+cat .ssh/known_hosts        // MINT --> DB
+exit                        // MINT
+```
+
