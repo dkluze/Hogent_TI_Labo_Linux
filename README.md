@@ -1039,3 +1039,153 @@ fi
 ```
 
 Dit script maakt gebruik van het cal (kalender commando). De gebruiker wordt verplicht om de drie eerste letters van de maand (jan-feb-maa-apr-mei-jun-jul-aug-sep-okt-nov-dec) in te geven. Vervolgens wordt de maandkalender van die maand weergegeven. Geef foutmelding indien geen correcte maand wordt ingegeven en stop het script. De gebruiker kan ook het jaartal ingeven (niet verplicht). Indien niet ingegeven wordt het huidige jaar gebruikt.
+
+
+# 7. Scripting "201"
+
+Schrijf een script passphrase.sh dat een willekeurige wachtwoordzin genereert zoals gesuggereerd door http://xkcd.com/936/. Gebruik een woordenlijst zoals /usr/share/dict/words (moet je mogelijks installeren). Opties en argumenten:
+
+passphrase.sh [-h|-?|--help]: druk uitleg over het commando af en sluit af met exit-status 0. Eventuele andere opties en argumenten worden genegeerd.
+passphrase.sh [N] [WORDS]
+N = het aantal woorden in de wachtwoordzin (standaardwaarde = 4)
+WORDS = het bestand dat de te gebruiken woordenlijst bevat (standaardwaarde = /usr/share/dict/words)
+Sluit af met een passende foutboodschap (op stderr!) en exit-status als:
+er twee of meer parameters gegeven werden
+WORDS niet bestaat of niet leesbaar is
+Tip: met het commando shuf kan je de volgorde van lijnen tekst door elkaar schudden.
+
+```bash
+#!/bin/bash
+N=4
+WORDS="/usr/share/dict/words"
+
+# Functions BEGIN
+usage() {
+    echo "passphrase.sh [N] [WORDS]"
+    echo "N = het aantal woorden in de wachtwoordzin (standaardwaarde = 4)"
+    echo "WORDS = het bestand dat de te gebruiken woordenlijst bevat (standaardwaarde = /usr/share/dict/words)"
+    exit 0
+}
+
+dir_is_valid() {
+    if [[ ! -r ${WORDS}  ]]; then
+        echo "${WORDS} bestaat niet of kan niet gelezen worden" >&2
+        exit 1
+    fi
+}
+
+generate_passphrase() {
+    for word in $(shuf ${WORDS} | head -n ${N}); do
+        passphrase="${passphrase} ${word}"
+    done
+
+    echo "${passphrase}"
+}
+
+handle_passphrase() {
+    case $# in
+        0) generate_passphrase;;
+
+        1) N="$1"
+            generate_passphrase;;
+
+        2) N="$1"
+            WORDS="$2"
+            dir_is_valid
+            generate_passphrase;;
+
+        *) echo "Meer dan 2 argumenten " >&2
+            exit 1;;
+    esac
+}
+# Functions END
+
+
+case "$1" in
+    -h | -? | --help) usage;;
+
+    *) handle_passphrase "$@";;
+esac
+```
+
+Schrijf een script om een backup te maken van de als argument opgegeven directory, meer bepaald een Tar-archief gecomprimeerd met bzip2.
+
+Het archief krijgt als naam DIRECTORY-TIMESTAMP.tar.bzip2 met:
+DIRECTORY = de naam van de directory waarvan je een backup maakt
+TIMESTAMP = de huidige datum/tijd in het formaat JJJJMMDDUUMM
+vb. “student-201312021825.tar.bzip2” voor directory /home/student
+Er wordt in dezelfde directory als het archief een log weggeschreven naar een bestand backup-TIMESTAMP.log van de uitvoer (zowel stdout als stderr) van het tar-commando.
+Gebruik: backup.sh [OPTIES] [DIR]
+Opties en argumenten:
+-h|-?|--help: druk uitleg over het commando af en sluit af met exit-status 0. Eventuele andere opties en argumenten worden genegeerd.
+-d|--destination DIR: de directory waar de backup naartoe geschreven moet worden. Standaardwaarde is /tmp
+DIR de directory waarvan er een backup gemaakt moet worden. Standaardwaarde is de home-directory van de huidige gebruiker.
+Sluit af met een passende foutboodschap (op stderr!) en exit-status als:
+er teveel argumenten gegeven worden
+de directory waarvan een backup gemaakt moet worden niet bestaat
+de directory waar de backup naartoe geschreven moet worden niet bestaat
+
+```bash
+#!/bin/bash
+
+DOEL="/tmp"
+
+# Functions BEGIN
+usage() {
+    echo "backup.sh [OPTIES] [DIR]"
+    exit 0
+}
+
+handle_backup() {
+    DATE=$(date +%y%y%m%d%H%M)
+    DIRNAME=$(basename ${DIR})
+    
+    if [ ! -d $DOEL ]; then
+        echo "${DOEL} bestaat niet" >&2
+        exit 1
+    fi
+
+    if [ ! -d $DIR ]; then
+        echo "${DIR} bestaat niet" >&2
+        exit 1
+    fi
+
+    tar cfj "${DOEL}/${DIRNAME}-${DATE}.tar.bzip2" $DIR
+}
+# Functions END
+
+
+case "$1" in
+    -h | -? | --help) 
+        usage;;
+
+    -d | --destination)
+        DOEL=$2
+        DIR=$3
+        handle_backup;;
+
+    *)
+        if [ $# -eq 1 ]; then
+            DIR=$1
+            handle_backup
+        else
+            usage
+        fi
+        ;;
+esac
+```
+
+Cron and jobs
+1. Log in op je database server (zie opdracht automation). Als gebruiker root, maak een cronjob aan die de mariadb service elke dag herstart om 03:03. 
+
+```powershell
+vagrant status
+vagrant up db
+vagrant login
+```
+
+```bash
+
+```
+
+3. Deze wijziging voerde je uit op de actieve database server. Reflecteer: waar zou je deze cronjob wijziging eigenlijk moeten doorvoeren?
