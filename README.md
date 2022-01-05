@@ -1362,14 +1362,57 @@ apt-install gparted
 
 gparted
 
-![image](https://user-images.githubusercontent.com/70543493/148181682-67283b7f-6705-45c6-a201-ef37aafa8322.png)
+![image](https://user-images.githubusercontent.com/70543493/148184267-a39a3f9d-a906-4290-a62e-1a1b34c01297.png)
+
 ```
 
 Kan je nog een primaire partitie aanmaken?
+
+```bash
+Ja, maar enkel als je minstens één extended partitie hebt. Anders lukt het niet meer om er eentje toe te voegen.
+```
+
 Kan je nog een logische partitie aanmaken?
+
+```bash
+Er zijn hoogstens vijf logische partities mogelijk. 
+```
+
 Sluit de grafische tool, en maak een nieuwe partitie aan die de volledige vrije ruimte gebruikt met fdisk. Welk naam krijgt deze block device? Hoeveel opslagruimte is er in deze partitie?
+
+```bash
+fdisk -l
+
+fdisk /dev/sdb
+
+command (m for help): n
+
+partition type: p
+
+select: 1
+
+last sector: 4194302
+
+created new partition
+
+command (m for help): w --> belangrijk dat je dit doet na het aanmaken vd partitie
+```
+
+
 Formateer deze partitie met NTFS.
+
+```bash
+sudo mkfs -t ntfs /dev/sdb1 --> meegegeven partitie formatteren
+lsblk -f                    --> is de partitie geformatteerd?
+```
+
 Bewerkt /etc/fstab. Voeg een lijn toe die deze nieuwe partitie (met ntfs) mount op de map /mnt/kernel. 
+
+```bash
+UUID ophalen:
+
+```
+
 Test dit uit door gewoon mount /dev/sdb7 (zonder doelmap) uit te voeren. De aanvullende info komt uit /etc/fstab!
 Zoek de UUID van de partitie /dev/sdb3. Voeg een entry toe in /etc/fstab, die deze partitie mount op /mnt/booty.
 Test dit uit door mount /mnt/booty (zonder device) uit te voeren.
