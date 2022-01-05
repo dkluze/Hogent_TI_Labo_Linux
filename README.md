@@ -1297,3 +1297,80 @@ cat .ssh/known_hosts        // MINT --> DB
 exit                        // MINT
 ```
 
+# 9. Mount
+De labo-oefeningen gaan er van uit dat je de extra VDI hebt toegevoegd aan jouw Linux Mint VM.
+
+```
+In virtualbox moet je je VM kiezen. 
+Ga dan naar Instellingen (tandwiel) van de VM.
+In het tabblad 'Opslag' moet je een extra harde schijf toevoegen. Klik op onderstaand icoontje.
+
+![image](https://user-images.githubusercontent.com/70543493/148177739-67a05f02-7f0b-4e63-b889-6ddaf0f46179.png)
+
+Nu moet je de .vdi kiezen die werd meegegeven op Chamilo of het leerpad. Druk op 'Kiezen'.
+Nu zou er, net zoals hierboven, een extra schijf moeten toegevoegd zijn.
+```
+
+Gezien je voor quasi alle opdrachten root-rechten nodig hebt, kan je de oefenigen uitvoeren als root. Via sudo -i kan je interactief inloggen als deze administrator van het systeem.
+
+```bash
+sudo su -
+of 
+sudo -i
+```
+
+Ga naar de map /mnt. Maak er twee submappen aan, genaamd booty en kernel.
+Mount /dev/sdb1 op zowel de map boot enkernel.
+Kopieer het bestand /boot/vmlinuz naar de map /mnt/booty. 
+Is het bestand nu ook aanwezig in de map /mnt/kernel? Leg uit.
+
+```bash
+cd /mnt
+
+mkdir booty
+mkdir kernel
+of
+sudo mkdir {booty, kernel}
+ls /mnt              --> twee mappen
+
+sudo mount /dev/sdb1 /mnt/booty
+sudo mount /dev/sdb1 /mnt/kernel
+
+cp /boot/vmlinuz /mnt/booty
+
+Het bestand is beschikbaar op zowel de map /booty als de map /kernel.
+```
+
+Hermount /dev/sdb1 read-only op kernel (opties -o remount,bind,ro). Verbreek de verbinding met de map /mnt/booty. 
+
+```bash
+hermounten:
+remount /dev/sdb1 /mnt/kernel -o remount,bind,ro
+
+verbreek de verbinding:
+umount /mnt/booty
+```
+
+Probeer nu in /mnt/kernel het bestand dat je kopieerde te verwijderen. Waarom lukt dit niet?
+Installeer de tool gparted op jouw systeem. Bekijk (grafisch) welke ruimte er nog vrij is op deze harde schijf. 
+
+```bash
+rm /mnt/kernel/vmlinuz
+error: 'can't remove ...: Read-Only File'
+
+apt-install gparted
+
+gparted
+
+![image](https://user-images.githubusercontent.com/70543493/148181682-67283b7f-6705-45c6-a201-ef37aafa8322.png)
+```
+
+Kan je nog een primaire partitie aanmaken?
+Kan je nog een logische partitie aanmaken?
+Sluit de grafische tool, en maak een nieuwe partitie aan die de volledige vrije ruimte gebruikt met fdisk. Welk naam krijgt deze block device? Hoeveel opslagruimte is er in deze partitie?
+Formateer deze partitie met NTFS.
+Bewerkt /etc/fstab. Voeg een lijn toe die deze nieuwe partitie (met ntfs) mount op de map /mnt/kernel. 
+Test dit uit door gewoon mount /dev/sdb7 (zonder doelmap) uit te voeren. De aanvullende info komt uit /etc/fstab!
+Zoek de UUID van de partitie /dev/sdb3. Voeg een entry toe in /etc/fstab, die deze partitie mount op /mnt/booty.
+Test dit uit door mount /mnt/booty (zonder device) uit te voeren.
+Bekijk de inhoud van de map /mnt/kernel. Waar is het bestand heen? Bekijk je mount tabel (filter op sdb), en verklaar.
