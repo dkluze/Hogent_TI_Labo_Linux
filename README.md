@@ -1049,7 +1049,8 @@ Installeer Apache (met ondersteuning voor HTTPS)
 Configureer de firewall
 Configureer SELinux waar nodig
 Installeer een demo PHP-pagina die een query uitvoert op de database en het resultaat toont op de webpagina
-
+ 
+ ```bash
 aantalinterfaces = $(ip a | grep 'inet ' | wc -l)
 
 if [ ${aantalinterfaces} -lt 3 ]; then
@@ -1081,7 +1082,7 @@ fi
 systemctl restart firewalld
 
 restorecon -R /var/www/html
-
+```
 
 # 7. Scripting "201"
 
@@ -1491,7 +1492,20 @@ Vergeet de configuratie van de firewall niet!
 Start de service op
 Verwerk de voorgaande stappen in het srv.sh-script, zodat je deze VM kan reconstrueren!
 
-Controleer het resultaat!
+```bash
+dnf install bind
+sed -n 'listen-on port' -i 's/{ 127.0.0.1; }/{ any; }g' /etc/named.conf 
+sed -n 'allow-query'-i 's/{ localhost; }/{ any; }g' /etc/named.conf
+
+services=$(firewall-cmd --list-all)
+
+if [ ! grep -q 'dns ' ${services} ]; then
+    firewall-cmd --add-service=dns
+fi
+
+systemctl restart firewalld
+systemctl start dns
+```
 
 Voer de troubleshooting-taken voor de transportlaag uit: draait de service? Op welke poort(en)? Is de firewall correct geconfigureerd?
 Zet de query log aan voor de DNS service
@@ -1509,6 +1523,8 @@ srv - 192.168.76.254, met alias ns
 mail - 192.168.76.10, met aliassen imap en smtp
 dit is een fictieve host, we gaan deze niet implementeren!
 Schrijf een zonebestand voor de forward zone (reverse lookup komt later) en pas het hoofdconfiguratiebestand aan. Controleer telkens de syntax van zowel je zonebestand als het hoofdconfiguratiebestand!
+
+
 
 Verwerk ook deze stappen in het installatiescript srv.sh Let er op dat als je bestanden kopieert naar de VM, deze de juiste permissies en eigendomsrechten hebben. Voor BIND is dit belangrijk! Kijk zelf na welke permissies de configuratiebestanden moeten hebben en pas deze toe op eventuele nieuwe bestanden die je naar de VM kopieert.
 
