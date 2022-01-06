@@ -1040,6 +1040,48 @@ fi
 
 Dit script maakt gebruik van het cal (kalender commando). De gebruiker wordt verplicht om de drie eerste letters van de maand (jan-feb-maa-apr-mei-jun-jul-aug-sep-okt-nov-dec) in te geven. Vervolgens wordt de maandkalender van die maand weergegeven. Geef foutmelding indien geen correcte maand wordt ingegeven en stop het script. De gebruiker kan ook het jaartal ingeven (niet verplicht). Indien niet ingegeven wordt het huidige jaar gebruikt.
 
+# Webserver Automatiseren
+
+Opdracht
+Als je de "web"-VM opstart zal je merken dat deze VM nog grotendeels "leeg" is. Zorg er voor dat dit een volwaardige webserver wordt. Dit proces moet volledig geautomatiseerd gebeuren. Je vult de nodige stappen aan in het script provisioning/web.sh.
+
+Installeer Apache (met ondersteuning voor HTTPS)
+Configureer de firewall
+Configureer SELinux waar nodig
+Installeer een demo PHP-pagina die een query uitvoert op de database en het resultaat toont op de webpagina
+
+aantalinterfaces = $(ip a | grep 'inet ' | wc -l)
+
+if [ ${aantalinterfaces} -lt 3 ]; then
+    echo 'Error:\t Niet genoeg interfaces.'
+    return 1
+fi
+
+link_local=127.0.0.1
+nat_IP_address=$(ip a | grep 'inet ' | sed -n 2p | tr -s '   ' | cut -d' ' -f3 | cut -d'/' -f1)
+local_IP_address=$(ip a | grep 'inet ' | sed -n 3p | tr -s '   ' | cut -d' ' -f3 | cut -d'/' -f1)
+DB_IP=192.168.76.4
+
+dnf install httpd php mariadb-server
+dnf install php-mysqlnd
+dnf install mod_ssl openssl
+
+systemctl start httpd
+
+services=$(firewall-cmd --list-all)
+
+if [ ! grep -q 'http ' ${services} ]; then
+    firewall-cmd --add-service=http
+fi
+
+if [ ! grep -q 'https' ${services} ]; then
+    firewall-cmd --add-service=https
+fi
+
+systemctl restart firewalld
+
+restorecon -R /var/www/html
+
 
 # 7. Scripting "201"
 
