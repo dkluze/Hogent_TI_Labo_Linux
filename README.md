@@ -1551,3 +1551,142 @@ Probeer tenslotte in een webbrowser de website "www.linux.lan" te openen. Dit zo
 
 Afwerken opstelling
 Controleer ten slotte nog eens of alle nodige code in de provisioning-scripts aanwezig is. Voer vagrant destroy uit en vagrant up. De 3 VMs zouden moeten opstarten, foutloos hun provisioning-script uitvoeren en de opstelling zou zonder verdere manuele handelingen moeten werken zoals ervoor!
+
+# Script Examen
+
+```bash
+#! /bin/bash
+
+# Stop het script bij een onbestaande variabele
+set -o nounset
+set -o errexit
+set -o pipefail
+
+### Algemene variabelen wrden eerst gedefinieerd
+# De map waarin je op zoek gaat naar het opgegeven type bestanden
+SEARCH_DIR=${1}
+# De map waar je de documenten gaat opslaan
+BACKUP_TEMP_DIR=${2}
+BACKUP_DIR=/var/www/backups
+
+
+### --- functions ---
+
+# installeer de webserver, ook al zou de service al geïnstalleerd zijn. 
+# Gebruik idempotente commando's waar mogelijk.
+function install_nginx {
+  # Ga na of de map voor de web-inhoud bestaat. Indien niet, maak ze aan
+  
+  
+  if [ -d $BACKUP_DIR ] ;
+  then
+    mkdir ~/"$BACKUP_DIR"
+  fi
+
+  # Installeer de webserver software 
+  dnf update
+  dnf install nginx 2>&1 /dev/null
+
+
+  # Pas de configuratie van de webserver aan
+  #tr '/usr/share/nginx/html' '/var/www/backups'
+  sed -i 's|/usr/share/nginx/html|/var/www/backups|g'
+
+  # Herstart de service
+  systemctl restart nginx
+
+  # Firewall ... 
+  firewall-cmd add-service=http
+  firewall-cmd add-service=https
+
+  firewall-cmd add-port=80
+  systemctl restart firewalld
+}
+
+# kopieer de symbolisch gelinkte bestanden van de zoekmap naar de backupmap, inclusief indexbestand
+function copy_symlink_files {
+  local WorkDIR=$1
+  local DestDIR=$2
+
+  touch indexfile
+  
+  # Hint: werk met find en schrijf naar een tijdelijk bestand pamd_index.txt
+
+
+
+
+  # Mapje leegmaken als het bestaat
+  if [ ! -d ~/"$BACKUP_DIR" ] ; 
+  then
+    for file in "$BACKUP_DIR"/*
+    do
+      rm file
+    done
+
+    rm $BACKUP_DIR/*
+  fi
+
+  #  kopieer alle bestanden uit het indexbestand met een loop
+  while read -r bestand
+  do
+    cp "$bestand" "$BACKUP_DIR"/
+	done < $indexfile # Hier kan je het tijdelijk bestand inlezen in een loop
+}
+
+function rename_mtaMTA {
+  # Zorg er voor dat er _geen_ output is van deze functie!
+  for file in $BACKUP_DIR
+  do
+    rename 's/^mta-/MTA-/g'
+  done
+}
+
+function readonly_permissions {
+  for file in "$BACKUP_DIR"/*
+  do
+    #chmod a-rwx $file
+    #chmod o+r $file
+    chmod 400 $file
+  done
+}
+
+function create_tarball {
+  local WorkDIR=$1
+  local FileName=$2
+
+  tar="alternatives_$(date '+%Y-%m-%d').tar.gz" $WorkDIR
+  
+  # maak de tarbal aan
+  tar -czvf $tar $BACKUP_DIR
+
+  # kopieer de tarball naar de doelmap
+  cp $tar $WorkDIR
+
+  # geef de inhoud van de tarbal weer
+  tar -tvf $tar
+}
+
+
+### --- main script ---
+### Voer de opeenvolgende taken uit
+
+# installeer nginx, ook al is het reeds geïnstalleerd. 
+install_nginx
+
+# geef de datum weer van vandaag, gebruik deze globale variabele
+DATUM=$(date)
+printf "Vandaag is het %d/%m/%y" "$DATUM"
+
+# leegmaken doelmap
+
+copy_symlink_files ...
+
+rename_mtaMTA ...
+
+readonly_permissions ... 
+
+create_tarball ...
+
+# Einde script
+
+```
