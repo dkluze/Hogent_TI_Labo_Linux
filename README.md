@@ -1493,18 +1493,31 @@ Start de service op
 Verwerk de voorgaande stappen in het srv.sh-script, zodat je deze VM kan reconstrueren!
 
 ```bash
-dnf install bind
-sed -n 'listen-on port' -i 's/{ 127.0.0.1; }/{ any; }g' /etc/named.conf 
-sed -n 'allow-query'-i 's/{ localhost; }/{ any; }g' /etc/named.conf
+dnf install -y bind
+dnf install -y dhcp
 
-services=$(firewall-cmd --list-all)
+log "luister op alle interfaces + zorg dat iedereen toegang heeft"
+sed -i 's/127.0.0.1/any/' /etc/named.conf 
+sed -i 's/localhost/any/' /etc/named.conf
 
-if [ ! grep -q 'dns ' ${services} ]; then
-    firewall-cmd --add-service=dns
-fi
+log "recursion uitschakelen + zone maken via reverse/normal lookup zone
+sed -i 's/recursion yes/recursion no/' /etc/named.conf
 
-systemctl restart firewalld
-systemctl start dns
+log "config file wijzigen"
+cp "${PROVISIONING_SCRIPTS}/files/${HOSTNAME}/named.conf" /etc
+cp "${PROVISIONING_SCRIPTS}/files/${HOSTNAME}/dhcpd.conf" /etc/dhcp/
+
+log "laat poort 53 toe"
+firewall-cmd --permanent --add-port 53/udp
+
+log "reloading firewall"
+firewall-cmd --reload
+
+log "start BIND"
+systemctl enable --now named
+
+log "start dhcp"
+systemctl enable --now dhcpd
 ```
 
 Voer de troubleshooting-taken voor de transportlaag uit: draait de service? Op welke poort(en)? Is de firewall correct geconfigureerd?
