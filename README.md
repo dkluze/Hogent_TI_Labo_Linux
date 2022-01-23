@@ -995,20 +995,24 @@ Sorteer de inhoud van een bestand (arg1) en toon de laatste regels (aantal regel
 ```bash                                
 #!/bin/bash
 
-bestand=${1}
-aantalRegels=${2}
+set -o nounset
+set -o pipefail
+set -o errexit
 
-if [ $# -eq 0 ]; then
-        echo "Niks meegegeven!"
-        exit 1
-elif [ ! -e ${1} ]; then
-        echo "Het bestand bestaat niet!"
-        exit 1
-elif [ -e ${2} ]; then
-        sort "${bestand}" | tail -"${aantalRegels}"
-else
-        sort "${bestand}" | tail -20
+filename="${1}"
+
+if [ ! -f "${filename}" ]; then
+	echo "File bestaat niet!"
+	exit 1
 fi
+
+if [ $# -eq 2 ]; then
+	number_of_lines=${2}
+else
+	number_of_lines=20
+fi
+
+echo "$(sort "${filename}" | tail -n ${number_of_lines})"
 ```
 
 Dit script moet testen of het opgegeven bestand (arg1) bestaat en uitvoerbaar is. Indien het niet uitvoerbaar is, moet het uitvoerbaar gemaakt worden.
