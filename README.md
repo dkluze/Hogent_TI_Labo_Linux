@@ -1465,6 +1465,26 @@ Zoek de UUID van de partitie /dev/sdb3. Voeg een entry toe in /etc/fstab, die de
 Test dit uit door mount /mnt/booty (zonder device) uit te voeren.
 Bekijk de inhoud van de map /mnt/kernel. Waar is het bestand heen? Bekijk je mount tabel (filter op sdb), en verklaar.
 
+# 10. BIND / DNS
+
+Gebruik nslookup om het IP-adres van de website www.apache.be op te vragen, maar richt je vraag naar de DNS server 8.8.4.4.
+Wie was de server die het antwoord gaf in je vorige request?
+
+```bash
+nslookup apache.be 8.8.4.4
+```
+
+Gebruik dig om het IP-adres van de website www.apache.be op te vragen. Kan je ook de short versie van dit commando aanwenden (zie man page)?
+
+```bash
+dig apache.be +short
+```
+
+Gebruik dig om het IPv6-adres van de website www.belnet.be op te vragen - het is een wel bepaald type (zie man page). Kan je er voor zorgen dat je enkel het IPv6 adres terugkrijgt als antwoord?
+
+```bash
+dig AAAA belnet.be +short
+```
 
 # 11. Automatisering DNS-server installatie
 We gaan verder op het labo van hoofdstuk 6, over het automatiseren van een serverinstallatie. Je hebt dus ook je Github-repository voor dit automatiseringslabo nodig, we gaan hier zaken aan toevoegen.
@@ -1541,6 +1561,35 @@ mail - 192.168.76.10, met aliassen imap en smtp
 dit is een fictieve host, we gaan deze niet implementeren!
 Schrijf een zonebestand voor de forward zone (reverse lookup komt later) en pas het hoofdconfiguratiebestand aan. Controleer telkens de syntax van zowel je zonebestand als het hoofdconfiguratiebestand!
 
+```bash
+#onderaan in /etc/named.conf toevoegen (tussen zone '.' en de includes)
+zone "linux.lan" IN {
+	type master;
+	file "linux.lan";
+	notify yes;
+	allow-update { none; };
+}
+
+#/var/named/linux.lan
+
+$ORIGIN linux.lan.
+$TTL 1W
+
+@ IN SOA ns.linux.lan. dylan.cluyse@student.hogent.be. (
+	21120117 1D 1H 1W 1D)
+	
+		IN	NS	nsl
+		IN	MX	10 mail
+nsl		IN	A	192.168.76.254
+db		IN	A	192.168.76.3
+web		IN	A	192.168.76.4
+www		IN	CNAME	web
+
+mail		IN	A	192.168.76.10
+smtp		IN	CNAME	mail
+imap		IN	CNAME	smtp
+
+```
 
 
 Verwerk ook deze stappen in het installatiescript srv.sh Let er op dat als je bestanden kopieert naar de VM, deze de juiste permissies en eigendomsrechten hebben. Voor BIND is dit belangrijk! Kijk zelf na welke permissies de configuratiebestanden moeten hebben en pas deze toe op eventuele nieuwe bestanden die je naar de VM kopieert.
@@ -1550,15 +1599,48 @@ Test het resultaat! Doe een DNS query voor bv. "www.linux.lan". Krijg je zowel h
 Iteratie 3: reverse lookup, authoritative only
 Schrijf vervolgens een reverse lookup zone. Wat zal de naam voor deze zone moeten worden? Pas ook het hoofdconfiguratiescript aan om deze zone te laden. Zet recursie nu uit (optie recursion). Zorg ook hier dat dit geautomatiseerd kan gebeuren!
 
+```bash
+#onderaan in /etc/named.conf (tussen '.' en 'linux.lan')
+zone "76.168.192.in-addr.arpa" IN {
+	type master;
+	file "76.168.192.in-addr.arpa";
+	notify yes;
+	allow-update { none; };
+}
+
+#var/named/76.168.192.in-addr.arpa
+$TTL 1W
+$ORIGIN 76.168.192.in-addr.arpa.
+
+@ IN SOA ns.linux.lan. dylan.cluyse@student.hogent.be. (
+	21120117 1D 1H 1W 1D )
+
+		IN	NS	ns1.linux.lan.
+254		IN	PTR	ns1.linux.lan.
+3		IN	PTR	db.linux.lan.
+4		IN	PTR	web.linux.lan.
+10		IN	PTR	mail.example.com
+```
+
 Controleer opnieuw het resultaat: voer een "reverse lookup" uit met een van de IP-adressen van de hosts in linux.lan. Werkt een (forward) lookup voor google.com nog?
 
-Installatie DHCP
+# Installatie DHCP
 We hadden in labo 3 handmatig een DHCP-server geïnstalleerd op een AlmaLinux-VM. In dit labo gaan we deze functionaliteit toevoegen aan srv. Haal je labo-nota's van hoofdstuk 3 er bij en automatiseer de installatie van DHCP. Bij de subnet-declaratie geef je volgende zaken mee:
 
 de range blijft zoals in labo 3 voorzien: 192.168.76.100-150
 geef de domeinnaam mee aan clients
 geef clients ook een DNS-server, nl. het IP-adres van srv
 Als je de AlmaLinux-VM nog in gebruik hebt, sluit deze dan nu af. Voer het provisioning-script voor srv uit en verifieer dat de DHCP-service actief is.
+
+```bash
+#/etc/dhcp/dhcpd.conf
+
+subnet 192.168.76.0 netmask 255.255.255.0 {
+	range 192.168.76.100 192.168.76.150;
+	option domain-name-serers 192.168.76.154;
+	option domain-name "linux.lan";
+}
+```
 
 Als je in de Linux Mint-VM een vast IP had ingesteld op de interface aangesloten op het intnet netwerk, verwijder dat dan en vraag opnieuw een IP-adres via DHCP. Zet de netwerkinterface uit en opnieuw aan. Controleer je nieuwe IP-adres en of er een DNS-server is ingesteld voor deze interface (resolvectl status).
 
@@ -1569,7 +1651,7 @@ Probeer tenslotte in een webbrowser de website "www.linux.lan" te openen. Dit zo
 Afwerken opstelling
 Controleer ten slotte nog eens of alle nodige code in de provisioning-scripts aanwezig is. Voer vagrant destroy uit en vagrant up. De 3 VMs zouden moeten opstarten, foutloos hun provisioning-script uitvoeren en de opstelling zou zonder verdere manuele handelingen moeten werken zoals ervoor!
 
-# Script Examen
+# X Script Examen
 
 ```bash
 #! /bin/bash
