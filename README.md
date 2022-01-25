@@ -1656,10 +1656,16 @@ Controleer ten slotte nog eens of alle nodige code in de provisioning-scripts aa
 ```bash
 #! /bin/bash
 
-# Stop het script bij een onbestaande variabele
-set -o nounset
-set -o errexit
-set -o pipefail
+
+set -o nounset  # -> stopt het script bij een obestaande variabele
+set -o errexit  # -> bij een error: exit het script 
+set -o pipefail # -> Sluit het script af wanneer je een commando gebruikt dat pipe's benut en er een error optreedt
+
+
+if [ ${#} -ne 2 ]; then
+    echo "Expected 2 args, got ${#}"
+    exit 1
+fi
 
 ### Algemene variabelen wrden eerst gedefinieerd
 # De map waarin je op zoek gaat naar het opgegeven type bestanden
@@ -1669,83 +1675,87 @@ BACKUP_TEMP_DIR=${2}
 BACKUP_DIR=/var/www/backups
 
 
-### --- functions ---
 
+
+### --- functions ---
 # installeer de webserver, ook al zou de service al geïnstalleerd zijn. 
 # Gebruik idempotente commando's waar mogelijk.
 function install_nginx {
   # Ga na of de map voor de web-inhoud bestaat. Indien niet, maak ze aan
-  
-  
-  if [ -d $BACKUP_DIR ] ;
-  then
-    mkdir ~/"$BACKUP_DIR"
-  fi
+  if [ ! -d "$BACKUP_DIR" ]; then 
+    mkdir -p "$BACKUP_DIR"
+  else 
+        echo "The directory already exists"
+        exit 0
+  fi 
 
   # Installeer de webserver software 
-  dnf update
-  dnf install nginx 2>&1 /dev/null
-
+sudo dnf update
+sudo dnf install -y nginx 2>&1 /dev/null 
 
   # Pas de configuratie van de webserver aan
-  #tr '/usr/share/nginx/html' '/var/www/backups'
   sed -i 's|/usr/share/nginx/html|/var/www/backups|g'
 
   # Herstart de service
-  systemctl restart nginx
+    sudo systemctl restart nginx
+
 
   # Firewall ... 
-  firewall-cmd add-service=http
-  firewall-cmd add-service=https
+    sudo firewall-cmd --permanent --zone=public --add-service=http
+    sudo firewall-cmd --permanent --zone=public --add-service=https
+    sudo firewall-cmd --permanent --zone=public --add-port=80/tcp
+    sudo firewall-cmd --permanent --zone=public --add-port=443/tcp
+    sudo firewall-cmd --reload  # -> Na wijzigen aan firewall: RELOAD! 
+  #  sudo systemctl restart firewalld
 
-  firewall-cmd add-port=80
-  systemctl restart firewalld
 }
 
 # kopieer de symbolisch gelinkte bestanden van de zoekmap naar de backupmap, inclusief indexbestand
-function copy_symlink_files {
-  local WorkDIR=$1
-  local DestDIR=$2
+function copy_symlink_files {  
+  local WorkDIR=$1  # -> van waar ze komen
+  local DestDIR=$2  # -> naar waar ze gaan 
 
-  touch indexfile
-  
+  touch indexfile 
+  mv indexfile $BACKUP_DIR
+
+
   # Hint: werk met find en schrijf naar een tijdelijk bestand pamd_index.txt
+  find -L $WorkDIR -type l -regex "^[e-n]" > indexfile
 
-
-
-
-  # Mapje leegmaken als het bestaat
-  if [ ! -d ~/"$BACKUP_DIR" ] ; 
-  then
-    for file in "$BACKUP_DIR"/*
-    do
-      rm file
+  # Verwijderen van de bestanden in de map 
+      # Mss mogelijk om in 1 commando te doen?
+if [ -d ~/"$BACKUP_DIR" ] ; then
+    for file in $BACKUP_DIR/* 
+    do 
+      rm $file 2>&1 /dev/null 
     done
 
-    rm $BACKUP_DIR/*
-  fi
+else 
+      echo "${1} The directory does not exists, stopping the script..." >&2
+      exit 2
+fi 
 
   #  kopieer alle bestanden uit het indexbestand met een loop
-  while read -r bestand
-  do
-    cp "$bestand" "$BACKUP_DIR"/
-	done < $indexfile # Hier kan je het tijdelijk bestand inlezen in een loop
+while read -r line;
+do
+  cp "${line}" "${DestDIR}"/
+done < ${DestDIR}pamd_index.txt # Hier kan je het tijdelijk bestand inlezen in een loop
 }
 
 function rename_mtaMTA {
   # Zorg er voor dat er _geen_ output is van deze functie!
-  for file in $BACKUP_DIR
-  do
-    rename 's/^mta-/MTA-/g'
-  done
+for file in "$BACKUP_DIR"/*
+do
+    rename 's/mta_/MTA_/' *$file
+done
 }
 
-function readonly_permissions {
+# OK -> deze is klaar
+function readonly_permissions { 
   for file in "$BACKUP_DIR"/*
-  do
-    #chmod a-rwx $file
-    #chmod o+r $file
-    chmod 400 $file
+  do 
+      chmod a-rwx $file 
+      chmod u+r $file 
   done
 }
 
@@ -1753,39 +1763,57 @@ function create_tarball {
   local WorkDIR=$1
   local FileName=$2
 
-  tar="alternatives_$(date '+%Y-%m-%d').tar.gz" $WorkDIR
-  
+  tar=sudo tar -P -transform="flags=r;s|${BACKUP_TEMP_DIR}/||" -cf$tar${BACKUP_TEMP_DIR}/*
+  # "alternatives_$(date '+%Y-%m-%d').tar.gz" $WorkDIR
+
   # maak de tarbal aan
-  tar -czvf $tar $BACKUP_DIR
+  tar -czvg $tar $BACKUP_DIR
 
   # kopieer de tarball naar de doelmap
   cp $tar $WorkDIR
-
-  # geef de inhoud van de tarbal weer
-  tar -tvf $tar
 }
 
 
 ### --- main script ---
 ### Voer de opeenvolgende taken uit
+log "SYSTEM -- Initiating script"
+setenforce 0
 
 # installeer nginx, ook al is het reeds geïnstalleerd. 
+log "SYSTEM -- NGINX installeren"
 install_nginx
 
 # geef de datum weer van vandaag, gebruik deze globale variabele
-DATUM=$(date)
-printf "Vandaag is het %d/%m/%y" "$DATUM"
+# OK -> al gecontroleerd!
+DATUM=$(date '+%Y-%m-%d')
+printf "Vandaag is het %s\n" "$DATUM"
 
 # leegmaken doelmap
+log "SYSTEM -- Doelmap leegmaken"
+if [ -d ~/"$BACKUP_DIR" ] ; then 
+  rm $BACKUP_DIR/*
+fi 
 
-copy_symlink_files ...
+# symbolic link files kopieren
+log "SYSTEM -- Symbolic link files copy"
+copy_symlink_files "$1" "$2"
 
-rename_mtaMTA ...
+# files startend met 'mta' renamen
+log "SYSTEM -- renaming files starting with 'mta'"
+rename_mtaMTA
 
-readonly_permissions ... 
 
-create_tarball ...
+#Permissions enkel Read-only maken"
+log "SYSTEM -- changing reading permissions"
+readonly_permissions 
 
+
+# Tarball aanmaken
+log "SYSTEM -- creating tarball"
+naam="alternatives_"$DATUM
+create_tarball "$SEARCH_DIR" "$naam"
+tar --list --file="$naam"
+
+log "SYSTEM -- Script completed successfully."
 # Einde script
-
 ```
